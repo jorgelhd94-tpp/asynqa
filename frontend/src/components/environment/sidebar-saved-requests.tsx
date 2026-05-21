@@ -29,7 +29,7 @@ import {
   useCreateSavedRequest,
   useDeleteSavedRequest,
 } from "@/hooks/use-task-runner";
-import { Copy, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react";
+import { Copy, MoreHorizontal, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { taskrunner } from "../../../wailsjs/go/models";
 import { clearDraft, hasDraft, DRAFT_CHANGE_EVENT } from "@/lib/task-runner-draft";
 
@@ -37,9 +37,10 @@ type SidebarSavedRequestsProps = {
   environmentId: number;
   newDialogOpen?: boolean;
   onNewDialogClose?: () => void;
+  onNewRequest?: () => void;
 };
 
-export function SidebarSavedRequests({ environmentId, newDialogOpen, onNewDialogClose }: SidebarSavedRequestsProps) {
+export function SidebarSavedRequests({ environmentId, newDialogOpen, onNewDialogClose, onNewRequest }: SidebarSavedRequestsProps) {
   const id = String(environmentId);
   const location = useLocation();
   const navigate = useNavigate();
@@ -202,6 +203,29 @@ export function SidebarSavedRequests({ environmentId, newDialogOpen, onNewDialog
 
   return (
     <>
+      {requests.length === 0 && (
+        <div className="flex flex-col items-center gap-3 px-4 py-10 text-center group-data-[collapsible=icon]:hidden">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-(--color-row-hover)">
+            <Send className="h-4 w-4 text-(--color-text-muted)" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-(--color-text-secondary)">
+              No saved requests yet
+            </p>
+            <p className="text-[11px] leading-relaxed text-(--color-text-muted)">
+              Compose a task, send it to a queue, and save it here to reuse later.
+            </p>
+          </div>
+          <button
+            onClick={onNewRequest}
+            className="inline-flex items-center gap-1.5 rounded-md border border-(--color-divider) px-2.5 py-1.5 text-xs text-(--color-text-secondary) transition-colors hover:bg-(--color-row-hover) hover:text-(--color-text-primary)"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New Request
+          </button>
+        </div>
+      )}
+
       {requests.length > 0 && <SidebarMenu>
         {requests.map((req) => (
           <SidebarMenuItem key={req.id}>

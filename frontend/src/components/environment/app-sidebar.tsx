@@ -214,6 +214,7 @@ export function AppSidebar({ environmentId }: AppSidebarProps) {
                 environmentId={environmentId}
                 newDialogOpen={newRequestDialogOpen}
                 onNewDialogClose={() => setNewRequestDialogOpen(false)}
+                onNewRequest={() => setNewRequestDialogOpen(true)}
               />
             </div>
           </SidebarGroupContent>

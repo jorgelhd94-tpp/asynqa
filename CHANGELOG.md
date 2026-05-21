@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Task Runner drafts:** in-progress edits are now persisted per saved request, so navigating away to inspect a queue or another task no longer loses your work. A "Draft" indicator appears next to saved requests with unsaved changes, and a **Discard** button clears the draft.
 - **Loading skeletons** on every task table (pending, active, scheduled, retry, archived, completed) so the views show clear feedback while data loads instead of appearing momentarily empty.
+- **Task Runner empty state** — when an environment has no saved requests, the sidebar now shows a friendly prompt with a **New Request** button instead of a blank area.
 
 ### Changed
 - **Date sorting now applies to the whole dataset.** Sorting a task table by its date column (e.g. "Last failed") sorts across all matching tasks, not just the current page. Very large queues are sorted up to a capped limit, and the UI shows a notice when that cap is reached.
