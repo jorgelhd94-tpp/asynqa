@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/jorgelhd94/asynqa/infrastructure/database"
 	dashservice "github.com/jorgelhd94/asynqa/internal/dashboard"
@@ -13,6 +14,7 @@ import (
 	queuepkg "github.com/jorgelhd94/asynqa/internal/queue"
 	redispkg "github.com/jorgelhd94/asynqa/internal/redis"
 	"github.com/jorgelhd94/asynqa/internal/scheduler"
+	"github.com/jorgelhd94/asynqa/internal/shared"
 	"github.com/jorgelhd94/asynqa/internal/taskrunner"
 	"github.com/jorgelhd94/asynqa/internal/updater"
 	"github.com/jorgelhd94/asynqa/internal/worker"
@@ -30,9 +32,24 @@ const appName = "AsynQA"
 
 var version = "dev"
 
+// logLevel reads the LOG_LEVEL env var (debug|info|warn|error), defaulting to
+// info, so production issues can be debugged without recompiling.
+func logLevel() slog.Level {
+	switch strings.ToLower(os.Getenv("LOG_LEVEL")) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
 func initLogger() {
 	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel(),
 	}
 	handler := slog.NewTextHandler(os.Stdout, opts)
 	slog.SetDefault(slog.New(handler))
@@ -55,12 +72,16 @@ func main() {
 	// Stores
 	environmentStore := env.NewEnvironmentStore(db)
 
+	// Shared per-environment Redis inspector pool (reused across polling calls).
+	inspectors := shared.NewInspectorManager()
+	defer inspectors.Close()
+
 	// Services
-	environmentService := env.NewEnvironmentService(environmentStore)
-	dashboardService := dashservice.NewDashboardService(environmentStore)
-	queueService := queuepkg.NewQueueService(environmentStore)
-	workerService := worker.NewWorkerService(environmentStore)
-	schedulerService := scheduler.NewSchedulerService(environmentStore)
+	environmentService := env.NewEnvironmentService(environmentStore, inspectors)
+	dashboardService := dashservice.NewDashboardService(environmentStore, inspectors)
+	queueService := queuepkg.NewQueueService(environmentStore, inspectors)
+	workerService := worker.NewWorkerService(environmentStore, inspectors)
+	schedulerService := scheduler.NewSchedulerService(environmentStore, inspectors)
 	redisService := redispkg.NewRedisService(environmentStore)
 	requestStore := taskrunner.NewTaskRunnerRequestStore(db)
 	taskRunnerService := taskrunner.NewTaskRunnerService(environmentStore, requestStore)

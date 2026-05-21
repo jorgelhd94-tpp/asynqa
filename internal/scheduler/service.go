@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/hibiken/asynq"
 	env "github.com/jorgelhd94/asynqa/internal/environment"
@@ -11,33 +10,28 @@ import (
 
 type SchedulerService struct {
 	environmentStore *env.EnvironmentStore
+	inspectors       *shared.InspectorManager
 }
 
-func NewSchedulerService(environmentStore *env.EnvironmentStore) *SchedulerService {
-	return &SchedulerService{environmentStore: environmentStore}
+func NewSchedulerService(environmentStore *env.EnvironmentStore, inspectors *shared.InspectorManager) *SchedulerService {
+	return &SchedulerService{environmentStore: environmentStore, inspectors: inspectors}
 }
 
+// newInspector returns a pooled inspector owned by the manager — do not Close it.
 func (s *SchedulerService) newInspector(environmentID uint) (*asynq.Inspector, error) {
 	env, err := s.environmentStore.FindByID(environmentID)
 	if err != nil {
 		return nil, fmt.Errorf("environment not found: %w", err)
 	}
-	return asynq.NewInspector(shared.NewRedisOpts(env)), nil
+	return s.inspectors.Get(env), nil
 }
 
-func formatTime(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.Format(time.RFC3339)
-}
 
 func (s *SchedulerService) GetSchedulerEntries(environmentID uint) (SchedulersData, error) {
 	inspector, err := s.newInspector(environmentID)
 	if err != nil {
 		return SchedulersData{}, err
 	}
-	defer inspector.Close()
 
 	entries, err := inspector.SchedulerEntries()
 	if err != nil {
@@ -64,8 +58,8 @@ func (s *SchedulerService) GetSchedulerEntries(environmentID uint) (SchedulersDa
 			TaskType:      taskType,
 			TaskPayload:   taskPayload,
 			Options:       opts,
-			NextEnqueueAt: formatTime(e.Next),
-			PrevEnqueueAt: formatTime(e.Prev),
+			NextEnqueueAt: shared.FormatTime(e.Next),
+			PrevEnqueueAt: shared.FormatTime(e.Prev),
 		})
 	}
 
@@ -78,8 +72,7 @@ func (s *SchedulerService) RunSchedulerEntry(environmentID uint, entryID string)
 		return RunResult{}, fmt.Errorf("environment not found: %w", err)
 	}
 
-	inspector := asynq.NewInspector(shared.NewRedisOpts(env))
-	defer inspector.Close()
+	inspector := s.inspectors.Get(env)
 
 	entries, err := inspector.SchedulerEntries()
 	if err != nil {
@@ -117,7 +110,6 @@ func (s *SchedulerService) GetEnqueueEvents(environmentID uint, entryID string, 
 	if err != nil {
 		return PaginatedEvents{}, err
 	}
-	defer inspector.Close()
 
 	events, err := inspector.ListSchedulerEnqueueEvents(
 		entryID,
@@ -135,7 +127,7 @@ func (s *SchedulerService) GetEnqueueEvents(environmentID uint, entryID string, 
 	for _, ev := range events {
 		result.Events = append(result.Events, EnqueueEvent{
 			TaskID:     ev.TaskID,
-			EnqueuedAt: formatTime(ev.EnqueuedAt),
+			EnqueuedAt: shared.FormatTime(ev.EnqueuedAt),
 		})
 	}
 	result.TotalCount = len(events)
