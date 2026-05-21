@@ -35,6 +35,26 @@ function getStorage(storage?: DraftStorage): DraftStorage | null {
   }
 }
 
+/**
+ * Fired on the window whenever a draft is created or cleared, so views that
+ * reflect draft state (e.g. the sidebar's per-request indicator) can refresh
+ * without polling localStorage. `storage` events only fire across tabs, not
+ * within the same window, so we dispatch our own.
+ */
+export const DRAFT_CHANGE_EVENT = "taskrunner-draft-change";
+
+function notifyDraftChange(injected?: DraftStorage): void {
+  // Only signal for the real shared store; injected storage is test-only.
+  if (injected) return;
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(DRAFT_CHANGE_EVENT));
+    }
+  } catch {
+    // ignore — best-effort notification
+  }
+}
+
 export function saveDraft(
   environmentId: number,
   requestId: number,
@@ -45,8 +65,27 @@ export function saveDraft(
   if (!store) return;
   try {
     store.setItem(draftKey(environmentId, requestId), JSON.stringify(values));
+    notifyDraftChange(storage);
   } catch {
     // storage full or unavailable — drafts are best-effort
+  }
+}
+
+/**
+ * Returns whether a saved request currently has an unsaved draft mirrored to
+ * storage. Cheap presence check used to render the sidebar draft indicator.
+ */
+export function hasDraft(
+  environmentId: number,
+  requestId: number,
+  storage?: DraftStorage,
+): boolean {
+  const store = getStorage(storage);
+  if (!store) return false;
+  try {
+    return store.getItem(draftKey(environmentId, requestId)) !== null;
+  } catch {
+    return false;
   }
 }
 
@@ -82,6 +121,7 @@ export function clearDraft(
   if (!store) return;
   try {
     store.removeItem(draftKey(environmentId, requestId));
+    notifyDraftChange(storage);
   } catch {
     // ignore
   }

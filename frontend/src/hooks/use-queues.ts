@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as QueueService from "../../wailsjs/go/queue/QueueService";
+import type { queue } from "../../wailsjs/go/models";
 
 export function useQueues(environmentId: number) {
   return useQuery({
@@ -27,13 +28,13 @@ export function usePauseQueue(environmentId: number) {
         queueName,
       ]);
 
-      queryClient.setQueryData(["queues", environmentId], (old: any) => {
+      queryClient.setQueryData(["queues", environmentId], (old?: queue.QueuesData) => {
         if (!old) return old;
         return {
           ...old,
           activeQueues: old.activeQueues - 1,
           pausedQueues: old.pausedQueues + 1,
-          queues: old.queues.map((q: any) =>
+          queues: old.queues.map((q) =>
             q.queue === queueName ? { ...q, paused: true } : q
           ),
         };
@@ -41,7 +42,7 @@ export function usePauseQueue(environmentId: number) {
 
       queryClient.setQueryData(
         ["queue-detail", environmentId, queueName],
-        (old: any) => {
+        (old?: queue.QueueDetailData) => {
           if (!old) return old;
           return { ...old, info: { ...old.info, paused: true } };
         }
@@ -93,13 +94,13 @@ export function useUnpauseQueue(environmentId: number) {
         queueName,
       ]);
 
-      queryClient.setQueryData(["queues", environmentId], (old: any) => {
+      queryClient.setQueryData(["queues", environmentId], (old?: queue.QueuesData) => {
         if (!old) return old;
         return {
           ...old,
           activeQueues: old.activeQueues + 1,
           pausedQueues: old.pausedQueues - 1,
-          queues: old.queues.map((q: any) =>
+          queues: old.queues.map((q) =>
             q.queue === queueName ? { ...q, paused: false } : q
           ),
         };
@@ -107,7 +108,7 @@ export function useUnpauseQueue(environmentId: number) {
 
       queryClient.setQueryData(
         ["queue-detail", environmentId, queueName],
-        (old: any) => {
+        (old?: queue.QueueDetailData) => {
           if (!old) return old;
           return { ...old, info: { ...old.info, paused: false } };
         }
@@ -151,9 +152,9 @@ export function useDeleteQueue(environmentId: number) {
 
       const previousQueues = queryClient.getQueryData(["queues", environmentId]);
 
-      queryClient.setQueryData(["queues", environmentId], (old: any) => {
+      queryClient.setQueryData(["queues", environmentId], (old?: queue.QueuesData) => {
         if (!old) return old;
-        const deleted = old.queues.find((q: any) => q.queue === queueName);
+        const deleted = old.queues.find((q) => q.queue === queueName);
         return {
           ...old,
           totalQueues: old.totalQueues - 1,
@@ -164,7 +165,7 @@ export function useDeleteQueue(environmentId: number) {
             ? old.pausedQueues - 1
             : old.pausedQueues,
           totalTasks: old.totalTasks - (deleted?.size ?? 0),
-          queues: old.queues.filter((q: any) => q.queue !== queueName),
+          queues: old.queues.filter((q) => q.queue !== queueName),
         };
       });
 

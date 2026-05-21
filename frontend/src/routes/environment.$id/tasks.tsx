@@ -4,16 +4,13 @@ import { PageHeader } from "@/components/environment/page-header";
 import { RefreshIndicator } from "@/components/environment/refresh-indicator";
 import {
   TASK_STATES,
-  ROW_ACTIONS,
-  DATE_COLUMN_LABEL,
   TaskDetailContent,
-  SortableColumnHeader,
   TaskTableSkeleton,
+  getStateCount,
   type RowAction,
   type SortDirection,
-  formatDate,
-  getDateFieldForState,
 } from "@/components/environment/task-shared";
+import { TaskTable } from "@/components/environment/task-table";
 import {
   useQueueDetail,
   useTaskList,
@@ -28,21 +25,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -59,16 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Archive,
-  ChevronLeft,
-  ChevronRight,
-  ListChecks,
-  MoreHorizontal,
-  Play,
-  Trash2,
-  XCircle,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, ListChecks } from "lucide-react";
 import { sileo } from "sileo";
 import { getErrorMessage } from "@/lib/errors";
 import type { queue } from "../../../wailsjs/go/models";
@@ -78,19 +51,6 @@ export const Route = createFileRoute("/environment/$id/tasks")({
 });
 
 const PAGE_SIZE = 20;
-
-function getStateCount(info: queue.QueueInfo | undefined, state: TaskState): number {
-  if (!info) return 0;
-  const map: Record<TaskState, number> = {
-    pending: info.pending,
-    active: info.active,
-    scheduled: info.scheduled,
-    retry: info.retry,
-    archived: info.archived,
-    completed: info.completed,
-  };
-  return map[state];
-}
 
 function TasksPage() {
   const { id } = Route.useParams();
@@ -161,7 +121,6 @@ function TasksPage() {
     }
   };
 
-  const rowActions = ROW_ACTIONS[activeTab];
   const queueInfo = queueDetail?.info;
 
   return (
@@ -255,115 +214,14 @@ function TasksPage() {
                         )}
                       </div>
 
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-(--color-divider) hover:bg-transparent">
-                            <TableHead className="text-(--color-text-secondary)">ID</TableHead>
-                            <TableHead className="text-(--color-text-secondary)">Type</TableHead>
-                            <TableHead className="text-(--color-text-secondary)">Payload</TableHead>
-                            {DATE_COLUMN_LABEL[activeTab] && (
-                              <TableHead>
-                                <SortableColumnHeader
-                                  label={DATE_COLUMN_LABEL[activeTab]!}
-                                  direction={sortDirection}
-                                  onToggle={handleToggleSort}
-                                />
-                              </TableHead>
-                            )}
-                            {activeTab === "retry" && (
-                              <TableHead className="text-(--color-text-secondary)">Retries</TableHead>
-                            )}
-                            {(activeTab === "retry" || activeTab === "archived") && (
-                              <TableHead className="text-(--color-text-secondary)">Last Error</TableHead>
-                            )}
-                            {activeTab === "active" && (
-                              <TableHead className="text-(--color-text-secondary)">Status</TableHead>
-                            )}
-                            <TableHead className="w-10" />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {tasks.map((t) => (
-                            <TableRow
-                              key={t.id}
-                              className="border-(--color-divider) hover:bg-(--color-row-hover) cursor-pointer transition-colors"
-                              onClick={() => setSelectedTask(t)}
-                            >
-                              <TableCell className="font-mono text-xs text-(--color-text-secondary)">
-                                {t.id.slice(0, 8)}
-                              </TableCell>
-                              <TableCell className="font-medium text-(--color-text-primary)">
-                                {t.type}
-                              </TableCell>
-                              <TableCell className="max-w-48 truncate text-xs text-(--color-text-secondary)">
-                                {t.payload?.slice(0, 60)}
-                              </TableCell>
-                              {DATE_COLUMN_LABEL[activeTab] && (
-                                <TableCell className="text-xs text-(--color-text-secondary)">
-                                  {formatDate(getDateFieldForState(t, activeTab))}
-                                </TableCell>
-                              )}
-                              {activeTab === "retry" && (
-                                <TableCell className="text-xs">
-                                  <span className="text-(--color-warning)">
-                                    {t.retried}/{t.maxRetry}
-                                  </span>
-                                </TableCell>
-                              )}
-                              {(activeTab === "retry" || activeTab === "archived") && (
-                                <TableCell className="max-w-32 truncate text-xs text-(--color-error)">
-                                  {t.lastErr}
-                                </TableCell>
-                              )}
-                              {activeTab === "active" && (
-                                <TableCell>
-                                  {t.isOrphaned ? (
-                                    <Badge variant="outline" className="border-(--color-error) text-(--color-error) text-xs">
-                                      Orphaned
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="border-(--color-success) text-(--color-success) text-xs">
-                                      Running
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                              )}
-                              {activeTab === "completed" && (
-                                <TableCell className="text-xs text-(--color-text-secondary)">
-                                  {formatDate(t.completedAt)}
-                                </TableCell>
-                              )}
-                              <TableCell onClick={(e) => e.stopPropagation()}>
-                                {rowActions.length > 0 && (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon-xs" className="text-(--color-text-secondary) hover:text-(--color-text-primary)">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      {rowActions.map((action, i) => (
-                                        <div key={action}>
-                                          {i > 0 && action === "delete" && <DropdownMenuSeparator />}
-                                          <DropdownMenuItem
-                                            variant={action === "delete" ? "destructive" : undefined}
-                                            onClick={() => handleTaskAction(action, t.id)}
-                                          >
-                                            {action === "run" && <><Play className="h-4 w-4" /> Run</>}
-                                            {action === "archive" && <><Archive className="h-4 w-4" /> Archive</>}
-                                            {action === "delete" && <><Trash2 className="h-4 w-4" /> Delete</>}
-                                            {action === "cancel" && <><XCircle className="h-4 w-4" /> Cancel</>}
-                                          </DropdownMenuItem>
-                                        </div>
-                                      ))}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                      <TaskTable
+                        state={activeTab}
+                        tasks={tasks}
+                        sortDirection={sortDirection}
+                        onToggleSort={handleToggleSort}
+                        onTaskSelect={setSelectedTask}
+                        onTaskAction={handleTaskAction}
+                      />
 
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between border-t border-(--color-divider) px-4 py-3">

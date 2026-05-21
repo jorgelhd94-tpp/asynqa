@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { loadDraft, saveDraft, clearDraft } from "./task-runner-draft";
+import { loadDraft, saveDraft, clearDraft, hasDraft } from "./task-runner-draft";
 import type { TaskRunnerFormValues } from "@/components/task-runner/task-runner-form";
 
 function memoryStorage() {
@@ -63,5 +63,16 @@ describe("task-runner draft", () => {
     const s = memoryStorage();
     s.setItem("taskrunner-draft:1:10", JSON.stringify({ queue: "x" }));
     expect(loadDraft(1, 10, s)).toBeNull();
+  });
+
+  it("reports draft presence per request", () => {
+    const s = memoryStorage();
+    expect(hasDraft(1, 10, s)).toBe(false);
+    saveDraft(1, 10, values, s);
+    expect(hasDraft(1, 10, s)).toBe(true);
+    expect(hasDraft(1, 11, s)).toBe(false); // different request
+    expect(hasDraft(2, 10, s)).toBe(false); // different environment
+    clearDraft(1, 10, s);
+    expect(hasDraft(1, 10, s)).toBe(false);
   });
 });

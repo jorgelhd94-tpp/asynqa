@@ -95,13 +95,13 @@ export function useCancelTask(environmentId: number) {
     mutationFn: (taskID: string) =>
       QueueService.CancelActiveTask(environmentId, taskID),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["queue-tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["queue-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-tasks", environmentId] });
+      queryClient.invalidateQueries({ queryKey: ["queue-detail", environmentId] });
     },
   });
 }
 
-type BulkRunState = "scheduled" | "retry" | "archived";
+export type BulkRunState = "scheduled" | "retry" | "archived";
 const bulkRunFns: Record<
   BulkRunState,
   (envId: number, queue: string) => Promise<any>
@@ -120,7 +120,7 @@ export function useBulkRunTasks(environmentId: number, queueName: string) {
   });
 }
 
-type BulkArchiveState = "pending" | "scheduled" | "retry";
+export type BulkArchiveState = "pending" | "scheduled" | "retry";
 const bulkArchiveFns: Record<
   BulkArchiveState,
   (envId: number, queue: string) => Promise<any>
@@ -139,7 +139,7 @@ export function useBulkArchiveTasks(environmentId: number, queueName: string) {
   });
 }
 
-type BulkDeleteState =
+export type BulkDeleteState =
   | "pending"
   | "scheduled"
   | "retry"

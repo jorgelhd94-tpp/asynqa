@@ -31,7 +31,7 @@ import {
 } from "@/hooks/use-task-runner";
 import { Copy, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react";
 import { taskrunner } from "../../../wailsjs/go/models";
-import { clearDraft } from "@/lib/task-runner-draft";
+import { clearDraft, hasDraft, DRAFT_CHANGE_EVENT } from "@/lib/task-runner-draft";
 
 type SidebarSavedRequestsProps = {
   environmentId: number;
@@ -54,7 +54,33 @@ export function SidebarSavedRequests({ environmentId, newDialogOpen, onNewDialog
   const [cloneValue, setCloneValue] = useState("");
   const [newName, setNewName] = useState("New Request");
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [draftIds, setDraftIds] = useState<Set<number>>(new Set());
   const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Reflect which saved requests currently have an unsaved draft. localStorage
+  // isn't reactive, so we recompute when the request list changes and whenever
+  // the form signals a draft was written or cleared.
+  useEffect(() => {
+    const recompute = () => {
+      setDraftIds((prev) => {
+        const next = new Set<number>();
+        for (const req of requests) {
+          if (hasDraft(environmentId, req.id)) next.add(req.id);
+        }
+        if (prev.size === next.size && [...next].every((id) => prev.has(id))) {
+          return prev;
+        }
+        return next;
+      });
+    };
+    recompute();
+    window.addEventListener(DRAFT_CHANGE_EVENT, recompute);
+    window.addEventListener("storage", recompute);
+    return () => {
+      window.removeEventListener(DRAFT_CHANGE_EVENT, recompute);
+      window.removeEventListener("storage", recompute);
+    };
+  }, [environmentId, requests]);
   const cloneInputCallbackRef = useCallback((node: HTMLInputElement | null) => {
     if (node) {
       requestAnimationFrame(() => {
@@ -207,6 +233,15 @@ export function SidebarSavedRequests({ environmentId, newDialogOpen, onNewDialog
                   >
                     <Send className="h-3 w-3" />
                     <span className="truncate" title={req.name}>{req.name}</span>
+                    {draftIds.has(req.id) && (
+                      <span
+                        className="ml-auto flex items-center gap-1 shrink-0 text-[9px] font-medium text-(--color-accent-val)"
+                        title="Unsaved draft"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-(--color-accent-val)" />
+                        Draft
+                      </span>
+                    )}
                   </Link>
                 </SidebarMenuButton>
                 <DropdownMenu>

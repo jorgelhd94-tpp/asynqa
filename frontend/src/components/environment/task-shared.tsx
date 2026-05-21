@@ -169,10 +169,6 @@ export function TaskTableSkeleton({
   const showLastError = state === "retry" || state === "archived";
   const showStatus = state === "active";
 
-  // The shared Skeleton uses `bg-accent`, which equals the panel background
-  // (#1e1e1e) here and would be invisible. Use a divider tone for contrast.
-  const bar = "bg-(--color-divider-dark)";
-
   return (
     <Table aria-busy="true">
       <TableHeader>
@@ -200,22 +196,22 @@ export function TaskTableSkeleton({
       <TableBody>
         {Array.from({ length: rows }).map((_, i) => (
           <TableRow key={i} className="border-(--color-divider) hover:bg-transparent">
-            <TableCell><Skeleton className={`h-4 w-16 ${bar}`} /></TableCell>
-            <TableCell><Skeleton className={`h-4 w-32 ${bar}`} /></TableCell>
-            <TableCell><Skeleton className={`h-4 w-full max-w-48 ${bar}`} /></TableCell>
+            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-full max-w-48" /></TableCell>
             {showDate && (
-              <TableCell><Skeleton className={`h-4 w-28 ${bar}`} /></TableCell>
+              <TableCell><Skeleton className="h-4 w-28" /></TableCell>
             )}
             {showRetries && (
-              <TableCell className="text-right"><Skeleton className={`ml-auto h-4 w-10 ${bar}`} /></TableCell>
+              <TableCell className="text-right"><Skeleton className="ml-auto h-4 w-10" /></TableCell>
             )}
             {showLastError && (
-              <TableCell><Skeleton className={`h-4 w-32 ${bar}`} /></TableCell>
+              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
             )}
             {showStatus && (
-              <TableCell><Skeleton className={`mx-auto h-5 w-16 rounded-full ${bar}`} /></TableCell>
+              <TableCell><Skeleton className="mx-auto h-5 w-16 rounded-full" /></TableCell>
             )}
-            <TableCell><Skeleton className={`h-4 w-6 ${bar}`} /></TableCell>
+            <TableCell><Skeleton className="h-4 w-6" /></TableCell>
           </TableRow>
         ))}
       </TableBody>
