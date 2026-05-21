@@ -31,6 +31,7 @@ import {
 } from "@/hooks/use-task-runner";
 import { Copy, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react";
 import { taskrunner } from "../../../wailsjs/go/models";
+import { clearDraft } from "@/lib/task-runner-draft";
 
 type SidebarSavedRequestsProps = {
   environmentId: number;
@@ -153,6 +154,7 @@ export function SidebarSavedRequests({ environmentId, newDialogOpen, onNewDialog
     const wasActive = isActive(deleteId);
     deleteMutation.mutate(deleteId, {
       onSuccess: () => {
+        clearDraft(environmentId, deleteId);
         if (wasActive) {
           const remaining = requests.filter((r) => r.id !== deleteId);
           if (remaining.length > 0) {

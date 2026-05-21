@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEnqueueTask } from "@/hooks/use-task-runner";
 import { useQueues } from "@/hooks/use-queues";
 import { useClipboard } from "@/hooks/use-clipboard";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { JsonEditor } from "@/components/task-runner/json-editor";
 import { CodeBlock } from "@/components/environment/code-block";
 import { getErrorMessage } from "@/lib/errors";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/task-runner-draft";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -41,6 +42,7 @@ export type TaskRunnerFormValues = {
 
 type TaskRunnerFormProps = {
   environmentId: number;
+  requestId: number;
   initialValues?: TaskRunnerFormValues;
   onSave?: (values: TaskRunnerFormValues) => void;
   isSaving?: boolean;
@@ -49,6 +51,7 @@ type TaskRunnerFormProps = {
 
 export function TaskRunnerForm({
   environmentId,
+  requestId,
   initialValues,
   onSave,
   isSaving,
@@ -68,16 +71,23 @@ export function TaskRunnerForm({
   const [delaySecs, setDelaySecs] = useState(initialValues?.delaySecs ?? "");
   const [activeTab, setActiveTab] = useState("body");
 
+  // Hydrate the form once per request: a locally saved draft (unsaved edits
+  // from a previous visit) takes precedence over the persisted saved request.
+  const hydratedFor = useRef<number | null>(null);
   useEffect(() => {
-    if (initialValues) {
-      setQueue(initialValues.queue);
-      setTaskType(initialValues.taskType);
-      setPayload(initialValues.payload);
-      setMaxRetry(initialValues.maxRetry);
-      setTimeoutSecs(initialValues.timeoutSecs);
-      setDelaySecs(initialValues.delaySecs);
-    }
-  }, [initialValues]);
+    if (!initialValues) return;
+    if (hydratedFor.current === requestId) return;
+
+    const draft = loadDraft(environmentId, requestId);
+    const init = draft ?? initialValues;
+    setQueue(init.queue);
+    setTaskType(init.taskType);
+    setPayload(init.payload);
+    setMaxRetry(init.maxRetry);
+    setTimeoutSecs(init.timeoutSecs);
+    setDelaySecs(init.delaySecs);
+    hydratedFor.current = requestId;
+  }, [initialValues, environmentId, requestId]);
 
   const currentValues: TaskRunnerFormValues = {
     queue,
@@ -92,6 +102,23 @@ export function TaskRunnerForm({
     onSave != null &&
     initialValues != null &&
     JSON.stringify(currentValues) !== JSON.stringify(initialValues);
+
+  // Mirror the draft to localStorage while there are unsaved edits, and remove
+  // it once the form matches the saved request (e.g. after saving or
+  // discarding). Debounced to avoid writing on every keystroke.
+  useEffect(() => {
+    if (onSave == null) return;
+    if (hydratedFor.current !== requestId) return;
+    const handle = setTimeout(() => {
+      if (hasUnsavedChanges) {
+        saveDraft(environmentId, requestId, currentValues);
+      } else {
+        clearDraft(environmentId, requestId);
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [environmentId, requestId, hasUnsavedChanges, queue, taskType, payload, maxRetry, timeoutSecs, delaySecs]);
 
   const handleSubmit = () => {
     if (!taskType.trim()) return;
@@ -212,8 +239,15 @@ export function TaskRunnerForm({
       {hasUnsavedChanges && (
         <div className="flex items-center gap-2 border-b border-(--color-accent-val)/20 bg-(--color-accent-val)/5 px-4 py-1.5">
           <span className="text-[10px] text-(--color-accent-val)">
-            Unsaved changes{savedRequestName ? ` in "${savedRequestName}"` : ""} — Ctrl+S to save
+            Unsaved changes{savedRequestName ? ` in "${savedRequestName}"` : ""} — kept as a draft, Ctrl+S to save
           </span>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="ml-auto text-[10px] text-(--color-text-muted) underline-offset-2 hover:text-(--color-text-secondary) hover:underline"
+          >
+            Discard
+          </button>
         </div>
       )}
 
