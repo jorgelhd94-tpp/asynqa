@@ -19,7 +19,7 @@ export function useQueueDetail(environmentId: number, queueName: string) {
 
 const taskListFns: Record<
   TaskState,
-  (envId: number, queue: string, page: number, size: number) => Promise<any>
+  (envId: number, queue: string, page: number, size: number, sortDir: string) => Promise<any>
 > = {
   pending: QueueService.ListPendingTasks,
   active: QueueService.ListActiveTasks,
@@ -34,11 +34,12 @@ export function useTaskList(
   queueName: string,
   state: TaskState,
   page: number,
-  pageSize: number
+  pageSize: number,
+  sortDir: string
 ) {
   return useQuery({
-    queryKey: ["queue-tasks", environmentId, queueName, state, page, pageSize],
-    queryFn: () => taskListFns[state](environmentId, queueName, page, pageSize),
+    queryKey: ["queue-tasks", environmentId, queueName, state, page, pageSize, sortDir],
+    queryFn: () => taskListFns[state](environmentId, queueName, page, pageSize, sortDir),
     refetchInterval: 5000,
   });
 }

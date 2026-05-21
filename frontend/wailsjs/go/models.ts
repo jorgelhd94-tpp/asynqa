@@ -236,6 +236,7 @@ export namespace queue {
 	    totalCount: number;
 	    page: number;
 	    pageSize: number;
+	    sortLimit: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PaginatedTaskList(source);
@@ -247,6 +248,7 @@ export namespace queue {
 	        this.totalCount = source["totalCount"];
 	        this.page = source["page"];
 	        this.pageSize = source["pageSize"];
+	        this.sortLimit = source["sortLimit"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

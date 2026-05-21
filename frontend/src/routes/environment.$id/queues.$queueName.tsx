@@ -10,10 +10,10 @@ import {
   DATE_COLUMN_LABEL,
   TaskDetailContent,
   SortableColumnHeader,
+  TaskTableSkeleton,
   formatBytes,
   formatDate,
   getDateFieldForState,
-  sortTasksByDate,
   getStateCount,
   type RowAction,
   type SortDirection,
@@ -113,7 +113,7 @@ function QueueDetailPage() {
   } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  const taskList = useTaskList(environmentId, queueName, activeTab, page, PAGE_SIZE);
+  const taskList = useTaskList(environmentId, queueName, activeTab, page, PAGE_SIZE, sortDirection);
 
   const runTask = useRunTask(environmentId, queueName);
   const deleteTask = useDeleteTask(environmentId, queueName);
@@ -127,7 +127,17 @@ function QueueDetailPage() {
   const history = data?.history ?? [];
   const tasks = taskList.data?.tasks ?? [];
   const totalCount = taskList.data?.totalCount ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  // The backend globally sorts at most `sortLimit` tasks before paginating, so
+  // pagination is bounded to that window and we surface a notice when exceeded.
+  const sortLimit = taskList.data?.sortLimit ?? 0;
+  const sortableCount = sortLimit > 0 ? Math.min(totalCount, sortLimit) : totalCount;
+  const totalPages = Math.max(1, Math.ceil(sortableCount / PAGE_SIZE));
+  const sortCapped = sortLimit > 0 && totalCount > sortLimit;
+
+  const handleToggleSort = () => {
+    setSortDirection((d) => (d === "desc" ? "asc" : "desc"));
+    setPage(1);
+  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as TaskState);
@@ -367,7 +377,9 @@ function QueueDetailPage() {
                 totalPages={totalPages}
                 isLoading={taskList.isLoading}
                 sortDirection={sortDirection}
-                onToggleSort={() => setSortDirection((d) => d === "desc" ? "asc" : "desc")}
+                sortCapped={activeTab === s.value && sortCapped}
+                sortLimit={sortLimit}
+                onToggleSort={handleToggleSort}
                 onPageChange={setPage}
                 onTaskAction={handleTaskAction}
                 onTaskSelect={setSelectedTask}
@@ -495,6 +507,8 @@ function TaskStateContent({
   totalPages,
   isLoading,
   sortDirection,
+  sortCapped,
+  sortLimit,
   onToggleSort,
   onPageChange,
   onTaskAction,
@@ -508,6 +522,8 @@ function TaskStateContent({
   totalPages: number;
   isLoading: boolean;
   sortDirection: SortDirection;
+  sortCapped: boolean;
+  sortLimit: number;
   onToggleSort: () => void;
   onPageChange: (p: number) => void;
   onTaskAction: (action: RowAction, taskID: string) => void;
@@ -544,11 +560,16 @@ function TaskStateContent({
         </div>
       )}
 
+      {/* Sort cap notice */}
+      {sortCapped && (
+        <div className="border-b border-(--color-divider) px-4 py-2 text-xs text-(--color-text-muted)">
+          {`Sorting the first ${sortLimit.toLocaleString()} of ${totalCount.toLocaleString()} tasks.`}
+        </div>
+      )}
+
       {/* Table */}
       {isLoading ? (
-        <div className="p-4">
-          <Skeleton className="h-48 rounded-lg" />
-        </div>
+        <TaskTableSkeleton state={state} />
       ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1 py-16 text-sm text-(--color-text-secondary)">
           <p>{`No ${state} tasks`}</p>
@@ -586,7 +607,7 @@ function TaskStateContent({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortTasksByDate(tasks, state, sortDirection).map((t) => (
+              {tasks.map((t) => (
                 <TableRow
                   key={t.id}
                   className="border-(--color-divider) hover:bg-(--color-row-hover) cursor-pointer transition-colors"

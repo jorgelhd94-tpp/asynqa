@@ -2,12 +2,19 @@ package queue
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/hibiken/asynq"
 	env "github.com/jorgelhd94/asynqa/internal/environment"
 	"github.com/jorgelhd94/asynqa/internal/shared"
 )
+
+// taskSortLimit caps how many tasks are fetched from Redis to be globally
+// sorted before paginating. Sorting an arbitrary column requires the whole
+// set, so we bound it to protect performance on very large queues; the
+// frontend shows a notice when a queue exceeds this.
+const taskSortLimit = 1000
 
 type QueueService struct {
 	environmentStore *env.EnvironmentStore
@@ -80,6 +87,100 @@ func mapTaskInfoList(tasks []*asynq.TaskInfo) []TaskInfo {
 		result = append(result, mapTaskInfo(t))
 	}
 	return result
+}
+
+// sortDateField returns the time used to sort a task in the given state,
+// mirroring the date column shown in the UI. States without a date column
+// return the zero time.
+func sortDateField(t *asynq.TaskInfo, state string) time.Time {
+	switch state {
+	case "scheduled":
+		return t.NextProcessAt
+	case "retry", "archived":
+		return t.LastFailedAt
+	case "completed":
+		return t.CompletedAt
+	default:
+		return time.Time{}
+	}
+}
+
+// sortTasksByState orders tasks in place by the state's date column. dir is
+// "asc" or "desc" (default). Tasks with a zero time always sort to the end,
+// matching the frontend behaviour. States without a date column are left
+// in their natural (asynq) order.
+func sortTasksByState(tasks []*asynq.TaskInfo, state, dir string) {
+	switch state {
+	case "scheduled", "retry", "archived", "completed":
+	default:
+		return
+	}
+	sort.SliceStable(tasks, func(i, j int) bool {
+		a := sortDateField(tasks[i], state)
+		b := sortDateField(tasks[j], state)
+		if a.IsZero() || b.IsZero() {
+			// non-zero comes before zero; keep order when both zero
+			return !a.IsZero() && b.IsZero()
+		}
+		if dir == "asc" {
+			return a.Before(b)
+		}
+		return a.After(b)
+	})
+}
+
+// paginate returns the slice of items for a 1-based page. Out-of-range pages
+// yield an empty slice.
+func paginate(items []TaskInfo, page, pageSize int) []TaskInfo {
+	if page < 1 || pageSize < 1 {
+		return []TaskInfo{}
+	}
+	start := (page - 1) * pageSize
+	if start >= len(items) {
+		return []TaskInfo{}
+	}
+	end := start + pageSize
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[start:end]
+}
+
+// listSortedTasks fetches up to taskSortLimit tasks via fetch, sorts the whole
+// set by the state's date column, then returns the requested page. This makes
+// the sort apply across the entire dataset rather than only the visible page.
+func (s *QueueService) listSortedTasks(
+	environmentID uint,
+	queueName, state, sortDir string,
+	page, pageSize int,
+	fetch func(*asynq.Inspector) ([]*asynq.TaskInfo, error),
+	total func(*asynq.QueueInfo) int,
+) (PaginatedTaskList, error) {
+	inspector, err := s.newInspector(environmentID)
+	if err != nil {
+		return PaginatedTaskList{}, err
+	}
+	defer inspector.Close()
+
+	tasks, err := fetch(inspector)
+	if err != nil {
+		return PaginatedTaskList{}, fmt.Errorf("failed to list %s tasks: %w", state, err)
+	}
+
+	info, err := inspector.GetQueueInfo(queueName)
+	if err != nil {
+		return PaginatedTaskList{}, fmt.Errorf("failed to get queue info: %w", err)
+	}
+
+	sortTasksByState(tasks, state, sortDir)
+
+	return PaginatedTaskList{
+		Tasks:      paginate(mapTaskInfoList(tasks), page, pageSize),
+		TotalCount: total(info),
+		Page:       page,
+		PageSize:   pageSize,
+		SortLimit:  taskSortLimit,
+	}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +301,10 @@ func (s *QueueService) DeleteQueue(environmentID uint, queueName string, force b
 // Task listing
 // ---------------------------------------------------------------------------
 
-func (s *QueueService) ListPendingTasks(environmentID uint, queueName string, page, pageSize int) (PaginatedTaskList, error) {
+// Pending and Active have no sortable date column, so they keep efficient
+// server-side pagination and ignore sortDir.
+
+func (s *QueueService) ListPendingTasks(environmentID uint, queueName string, page, pageSize int, sortDir string) (PaginatedTaskList, error) {
 	inspector, err := s.newInspector(environmentID)
 	if err != nil {
 		return PaginatedTaskList{}, err
@@ -225,7 +329,7 @@ func (s *QueueService) ListPendingTasks(environmentID uint, queueName string, pa
 	}, nil
 }
 
-func (s *QueueService) ListActiveTasks(environmentID uint, queueName string, page, pageSize int) (PaginatedTaskList, error) {
+func (s *QueueService) ListActiveTasks(environmentID uint, queueName string, page, pageSize int, sortDir string) (PaginatedTaskList, error) {
 	inspector, err := s.newInspector(environmentID)
 	if err != nil {
 		return PaginatedTaskList{}, err
@@ -250,104 +354,40 @@ func (s *QueueService) ListActiveTasks(environmentID uint, queueName string, pag
 	}, nil
 }
 
-func (s *QueueService) ListScheduledTasks(environmentID uint, queueName string, page, pageSize int) (PaginatedTaskList, error) {
-	inspector, err := s.newInspector(environmentID)
-	if err != nil {
-		return PaginatedTaskList{}, err
-	}
-	defer inspector.Close()
-
-	tasks, err := inspector.ListScheduledTasks(queueName, asynq.Page(page), asynq.PageSize(pageSize))
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to list scheduled tasks: %w", err)
-	}
-
-	info, err := inspector.GetQueueInfo(queueName)
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to get queue info: %w", err)
-	}
-
-	return PaginatedTaskList{
-		Tasks:      mapTaskInfoList(tasks),
-		TotalCount: info.Scheduled,
-		Page:       page,
-		PageSize:   pageSize,
-	}, nil
+func (s *QueueService) ListScheduledTasks(environmentID uint, queueName string, page, pageSize int, sortDir string) (PaginatedTaskList, error) {
+	return s.listSortedTasks(environmentID, queueName, "scheduled", sortDir, page, pageSize,
+		func(insp *asynq.Inspector) ([]*asynq.TaskInfo, error) {
+			return insp.ListScheduledTasks(queueName, asynq.Page(1), asynq.PageSize(taskSortLimit))
+		},
+		func(info *asynq.QueueInfo) int { return info.Scheduled },
+	)
 }
 
-func (s *QueueService) ListRetryTasks(environmentID uint, queueName string, page, pageSize int) (PaginatedTaskList, error) {
-	inspector, err := s.newInspector(environmentID)
-	if err != nil {
-		return PaginatedTaskList{}, err
-	}
-	defer inspector.Close()
-
-	tasks, err := inspector.ListRetryTasks(queueName, asynq.Page(page), asynq.PageSize(pageSize))
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to list retry tasks: %w", err)
-	}
-
-	info, err := inspector.GetQueueInfo(queueName)
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to get queue info: %w", err)
-	}
-
-	return PaginatedTaskList{
-		Tasks:      mapTaskInfoList(tasks),
-		TotalCount: info.Retry,
-		Page:       page,
-		PageSize:   pageSize,
-	}, nil
+func (s *QueueService) ListRetryTasks(environmentID uint, queueName string, page, pageSize int, sortDir string) (PaginatedTaskList, error) {
+	return s.listSortedTasks(environmentID, queueName, "retry", sortDir, page, pageSize,
+		func(insp *asynq.Inspector) ([]*asynq.TaskInfo, error) {
+			return insp.ListRetryTasks(queueName, asynq.Page(1), asynq.PageSize(taskSortLimit))
+		},
+		func(info *asynq.QueueInfo) int { return info.Retry },
+	)
 }
 
-func (s *QueueService) ListArchivedTasks(environmentID uint, queueName string, page, pageSize int) (PaginatedTaskList, error) {
-	inspector, err := s.newInspector(environmentID)
-	if err != nil {
-		return PaginatedTaskList{}, err
-	}
-	defer inspector.Close()
-
-	tasks, err := inspector.ListArchivedTasks(queueName, asynq.Page(page), asynq.PageSize(pageSize))
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to list archived tasks: %w", err)
-	}
-
-	info, err := inspector.GetQueueInfo(queueName)
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to get queue info: %w", err)
-	}
-
-	return PaginatedTaskList{
-		Tasks:      mapTaskInfoList(tasks),
-		TotalCount: info.Archived,
-		Page:       page,
-		PageSize:   pageSize,
-	}, nil
+func (s *QueueService) ListArchivedTasks(environmentID uint, queueName string, page, pageSize int, sortDir string) (PaginatedTaskList, error) {
+	return s.listSortedTasks(environmentID, queueName, "archived", sortDir, page, pageSize,
+		func(insp *asynq.Inspector) ([]*asynq.TaskInfo, error) {
+			return insp.ListArchivedTasks(queueName, asynq.Page(1), asynq.PageSize(taskSortLimit))
+		},
+		func(info *asynq.QueueInfo) int { return info.Archived },
+	)
 }
 
-func (s *QueueService) ListCompletedTasks(environmentID uint, queueName string, page, pageSize int) (PaginatedTaskList, error) {
-	inspector, err := s.newInspector(environmentID)
-	if err != nil {
-		return PaginatedTaskList{}, err
-	}
-	defer inspector.Close()
-
-	tasks, err := inspector.ListCompletedTasks(queueName, asynq.Page(page), asynq.PageSize(pageSize))
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to list completed tasks: %w", err)
-	}
-
-	info, err := inspector.GetQueueInfo(queueName)
-	if err != nil {
-		return PaginatedTaskList{}, fmt.Errorf("failed to get queue info: %w", err)
-	}
-
-	return PaginatedTaskList{
-		Tasks:      mapTaskInfoList(tasks),
-		TotalCount: info.Completed,
-		Page:       page,
-		PageSize:   pageSize,
-	}, nil
+func (s *QueueService) ListCompletedTasks(environmentID uint, queueName string, page, pageSize int, sortDir string) (PaginatedTaskList, error) {
+	return s.listSortedTasks(environmentID, queueName, "completed", sortDir, page, pageSize,
+		func(insp *asynq.Inspector) ([]*asynq.TaskInfo, error) {
+			return insp.ListCompletedTasks(queueName, asynq.Page(1), asynq.PageSize(taskSortLimit))
+		},
+		func(info *asynq.QueueInfo) int { return info.Completed },
+	)
 }
 
 // ---------------------------------------------------------------------------

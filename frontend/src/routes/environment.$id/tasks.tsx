@@ -8,11 +8,11 @@ import {
   DATE_COLUMN_LABEL,
   TaskDetailContent,
   SortableColumnHeader,
+  TaskTableSkeleton,
   type RowAction,
   type SortDirection,
   formatDate,
   getDateFieldForState,
-  sortTasksByDate,
 } from "@/components/environment/task-shared";
 import {
   useQueueDetail,
@@ -108,7 +108,7 @@ function TasksPage() {
   const currentQueue = selectedQueue || queueNames[0] || "";
 
   const { data: queueDetail } = useQueueDetail(environmentId, currentQueue);
-  const taskList = useTaskList(environmentId, currentQueue, activeTab, page, PAGE_SIZE);
+  const taskList = useTaskList(environmentId, currentQueue, activeTab, page, PAGE_SIZE, sortDirection);
   const runTask = useRunTask(environmentId, currentQueue);
   const deleteTask = useDeleteTask(environmentId, currentQueue);
   const archiveTask = useArchiveTask(environmentId, currentQueue);
@@ -116,12 +116,22 @@ function TasksPage() {
 
   const tasks = taskList.data?.tasks ?? [];
   const totalCount = taskList.data?.totalCount ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  // Backend globally sorts at most `sortLimit` tasks, so pagination is bounded
+  // to that window and we surface a notice when exceeded.
+  const sortLimit = taskList.data?.sortLimit ?? 0;
+  const sortableCount = sortLimit > 0 ? Math.min(totalCount, sortLimit) : totalCount;
+  const totalPages = Math.max(1, Math.ceil(sortableCount / PAGE_SIZE));
+  const sortCapped = sortLimit > 0 && totalCount > sortLimit;
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as TaskState);
     setPage(1);
     setSortDirection("desc");
+  };
+
+  const handleToggleSort = () => {
+    setSortDirection((d) => (d === "desc" ? "asc" : "desc"));
+    setPage(1);
   };
 
   const handleQueueChange = (q: string) => {
@@ -221,9 +231,7 @@ function TasksPage() {
               {TASK_STATES.map((s) => (
                 <TabsContent key={s.value} value={s.value} className="mt-0">
                   {taskList.isLoading ? (
-                    <div className="p-4">
-                      <Skeleton className="h-48 rounded-lg" />
-                    </div>
+                    <TaskTableSkeleton state={activeTab} />
                   ) : tasks.length === 0 ? (
                     <div className="flex items-center justify-center py-16 text-sm text-(--color-text-secondary)">
                       <div className="text-center">
@@ -240,6 +248,11 @@ function TasksPage() {
                         <span className="text-xs text-(--color-text-secondary)">
                           {totalCount} task(s)
                         </span>
+                        {sortCapped && (
+                          <span className="ml-auto text-xs text-(--color-text-muted)">
+                            {`Sorting the first ${sortLimit.toLocaleString()} of ${totalCount.toLocaleString()}`}
+                          </span>
+                        )}
                       </div>
 
                       <Table>
@@ -253,7 +266,7 @@ function TasksPage() {
                                 <SortableColumnHeader
                                   label={DATE_COLUMN_LABEL[activeTab]!}
                                   direction={sortDirection}
-                                  onToggle={() => setSortDirection((d) => d === "desc" ? "asc" : "desc")}
+                                  onToggle={handleToggleSort}
                                 />
                               </TableHead>
                             )}
@@ -270,7 +283,7 @@ function TasksPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {sortTasksByDate(tasks, activeTab, sortDirection).map((t) => (
+                          {tasks.map((t) => (
                             <TableRow
                               key={t.id}
                               className="border-(--color-divider) hover:bg-(--color-row-hover) cursor-pointer transition-colors"

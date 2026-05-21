@@ -30,17 +30,17 @@ export function GetQueueDetail(arg1:number,arg2:string):Promise<queue.QueueDetai
 
 export function GetQueues(arg1:number):Promise<queue.QueuesData>;
 
-export function ListActiveTasks(arg1:number,arg2:string,arg3:number,arg4:number):Promise<queue.PaginatedTaskList>;
+export function ListActiveTasks(arg1:number,arg2:string,arg3:number,arg4:number,arg5:string):Promise<queue.PaginatedTaskList>;
 
-export function ListArchivedTasks(arg1:number,arg2:string,arg3:number,arg4:number):Promise<queue.PaginatedTaskList>;
+export function ListArchivedTasks(arg1:number,arg2:string,arg3:number,arg4:number,arg5:string):Promise<queue.PaginatedTaskList>;
 
-export function ListCompletedTasks(arg1:number,arg2:string,arg3:number,arg4:number):Promise<queue.PaginatedTaskList>;
+export function ListCompletedTasks(arg1:number,arg2:string,arg3:number,arg4:number,arg5:string):Promise<queue.PaginatedTaskList>;
 
-export function ListPendingTasks(arg1:number,arg2:string,arg3:number,arg4:number):Promise<queue.PaginatedTaskList>;
+export function ListPendingTasks(arg1:number,arg2:string,arg3:number,arg4:number,arg5:string):Promise<queue.PaginatedTaskList>;
 
-export function ListRetryTasks(arg1:number,arg2:string,arg3:number,arg4:number):Promise<queue.PaginatedTaskList>;
+export function ListRetryTasks(arg1:number,arg2:string,arg3:number,arg4:number,arg5:string):Promise<queue.PaginatedTaskList>;
 
-export function ListScheduledTasks(arg1:number,arg2:string,arg3:number,arg4:number):Promise<queue.PaginatedTaskList>;
+export function ListScheduledTasks(arg1:number,arg2:string,arg3:number,arg4:number,arg5:string):Promise<queue.PaginatedTaskList>;
 
 export function PauseQueue(arg1:number,arg2:string):Promise<void>;
 

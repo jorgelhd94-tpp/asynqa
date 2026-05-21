@@ -58,28 +58,28 @@ export function GetQueues(arg1) {
   return window['go']['queue']['QueueService']['GetQueues'](arg1);
 }
 
-export function ListActiveTasks(arg1, arg2, arg3, arg4) {
-  return window['go']['queue']['QueueService']['ListActiveTasks'](arg1, arg2, arg3, arg4);
+export function ListActiveTasks(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['queue']['QueueService']['ListActiveTasks'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function ListArchivedTasks(arg1, arg2, arg3, arg4) {
-  return window['go']['queue']['QueueService']['ListArchivedTasks'](arg1, arg2, arg3, arg4);
+export function ListArchivedTasks(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['queue']['QueueService']['ListArchivedTasks'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function ListCompletedTasks(arg1, arg2, arg3, arg4) {
-  return window['go']['queue']['QueueService']['ListCompletedTasks'](arg1, arg2, arg3, arg4);
+export function ListCompletedTasks(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['queue']['QueueService']['ListCompletedTasks'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function ListPendingTasks(arg1, arg2, arg3, arg4) {
-  return window['go']['queue']['QueueService']['ListPendingTasks'](arg1, arg2, arg3, arg4);
+export function ListPendingTasks(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['queue']['QueueService']['ListPendingTasks'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function ListRetryTasks(arg1, arg2, arg3, arg4) {
-  return window['go']['queue']['QueueService']['ListRetryTasks'](arg1, arg2, arg3, arg4);
+export function ListRetryTasks(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['queue']['QueueService']['ListRetryTasks'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function ListScheduledTasks(arg1, arg2, arg3, arg4) {
-  return window['go']['queue']['QueueService']['ListScheduledTasks'](arg1, arg2, arg3, arg4);
+export function ListScheduledTasks(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['queue']['QueueService']['ListScheduledTasks'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function PauseQueue(arg1, arg2) {

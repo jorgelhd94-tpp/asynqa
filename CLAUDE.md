@@ -55,6 +55,13 @@ Backend Go methods are exposed to the frontend via auto-generated bindings in `f
 
 SQLite database (`asynqa.db`) using GORM with auto-migration. Models are defined in `internal/domain/` and migrated in `infrastructure/database/`.
 
+## Testing
+
+Write tests for logic that can break in non-obvious ways — pure functions (sorting, pagination, parsing, formatting, mapping), edge cases, and bug fixes (add a test that reproduces the bug first). Prefer **TDD** when the logic is well-defined: write the failing test, then implement until it passes. Do **not** chase perfection or 100% coverage — skip tests for trivial glue, thin pass-through wrappers, generated code, and UI wiring that only a real run can validate. A few meaningful tests beat many shallow ones.
+
+- **Go**: standard `testing` package, table-driven tests, files named `*_test.go` next to the code. Run with `go test ./...`. Keep units pure/injectable so they don't need a live Redis/DB.
+- **Frontend**: Vitest (`cd frontend && npm run test`). Co-locate as `*.test.ts(x)` next to the unit. Test helpers and hooks logic, not styling.
+
 ## Key Conventions
 
 - Path alias `@/*` maps to `frontend/src/*` in TypeScript imports
