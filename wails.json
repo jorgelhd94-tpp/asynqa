@@ -12,7 +12,7 @@
   "info": {
     "companyName": "AsynQA",
     "productName": "AsynQA",
-    "productVersion": "0.1.0",
+    "productVersion": "0.2.0",
     "copyright": "Copyright © 2026 Jorge Luis Hernández Dueñas",
     "comments": "Desktop tool for managing asynq task queues"
   }
