@@ -14,6 +14,7 @@ import {
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { sileo } from "sileo";
+import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/")({
   component: IndexPage,
@@ -42,16 +43,9 @@ export default function IndexPage() {
         navigate({ to: "/environment/$id", params: { id: String(env.ID) } });
       },
       onError: (error) => {
-        let description = error.message;
-        try {
-          const parsed = JSON.parse(description);
-          description = parsed.message ?? description;
-        } catch {
-          // use raw message
-        }
         sileo.error({
           title: "Connection failed",
-          description,
+          description: getErrorMessage(error),
         });
       },
       onSettled: () => {
