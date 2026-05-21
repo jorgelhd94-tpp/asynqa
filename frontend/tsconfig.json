@@ -21,7 +21,6 @@
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": true,
 
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@bindings/*": ["./bindings/github.com/jorgelhd94/asynqa/*"]
