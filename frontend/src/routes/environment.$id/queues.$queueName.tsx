@@ -83,6 +83,7 @@ import {
   Zap,
 } from "lucide-react";
 import { sileo } from "sileo";
+import { getErrorMessage } from "@/lib/errors";
 import type { queue } from "../../../wailsjs/go/models";
 
 export const Route = createFileRoute("/environment/$id/queues/$queueName")({
@@ -139,12 +140,12 @@ function QueueDetailPage() {
     if (info.paused) {
       unpauseMutation.mutate(queueName, {
         onSuccess: () => sileo.success({ title: `Queue "${queueName}" resumed` }),
-        onError: (err) => sileo.error({ title: `Failed to resume: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to resume: ${getErrorMessage(err)}` }),
       });
     } else {
       pauseMutation.mutate(queueName, {
         onSuccess: () => sileo.success({ title: `Queue "${queueName}" paused` }),
-        onError: (err) => sileo.error({ title: `Failed to pause: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to pause: ${getErrorMessage(err)}` }),
       });
     }
   };
@@ -157,7 +158,7 @@ function QueueDetailPage() {
           sileo.success({ title: `Queue "${queueName}" deleted` });
           navigate({ to: "/environment/$id/queues", params: { id } });
         },
-        onError: (err) => sileo.error({ title: `Failed to delete: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to delete: ${getErrorMessage(err)}` }),
         onSettled: () => setDeleteQueueOpen(false),
       }
     );
@@ -171,7 +172,7 @@ function QueueDetailPage() {
         sileo.success({ title: `Task ${labels[action]}` });
         setSelectedTask(null);
       },
-      onError: (err) => sileo.error({ title: `Failed: ${err.message}` }),
+      onError: (err) => sileo.error({ title: `Failed: ${getErrorMessage(err)}` }),
     });
   };
 
@@ -190,7 +191,7 @@ function QueueDetailPage() {
     mutationMap[type].mutate(state as any, {
       onSuccess: (result: any) =>
         sileo.success({ title: `${result.count} task(s) ${type === `run` ? `queued` : type + `d`}` }),
-      onError: (err: any) => sileo.error({ title: `Failed: ${err.message}` }),
+      onError: (err) => sileo.error({ title: `Failed: ${getErrorMessage(err)}` }),
       onSettled: () => setBulkAction(null),
     });
   };

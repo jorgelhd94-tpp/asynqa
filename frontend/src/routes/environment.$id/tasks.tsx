@@ -70,6 +70,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { sileo } from "sileo";
+import { getErrorMessage } from "@/lib/errors";
 import type { queue } from "../../../wailsjs/go/models";
 
 export const Route = createFileRoute("/environment/$id/tasks")({
@@ -138,7 +139,7 @@ function TasksPage() {
         sileo.success({ title: `Task ${labels[action]}` });
         setSelectedTask(null);
       },
-      onError: (err) => sileo.error({ title: `Failed: ${err.message}` }),
+      onError: (err) => sileo.error({ title: `Failed: ${getErrorMessage(err)}` }),
     });
   };
 

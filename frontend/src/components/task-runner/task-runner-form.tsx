@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { JsonEditor } from "@/components/task-runner/json-editor";
 import { CodeBlock } from "@/components/environment/code-block";
+import { getErrorMessage } from "@/lib/errors";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -454,7 +455,7 @@ export function TaskRunnerForm({
                 <div className="mt-4">
                   <CodeBlock
                     label="Error"
-                    content={enqueueMutation.error?.message ?? "Unknown error"}
+                    content={getErrorMessage(enqueueMutation.error)}
                     variant="error"
                   />
                 </div>

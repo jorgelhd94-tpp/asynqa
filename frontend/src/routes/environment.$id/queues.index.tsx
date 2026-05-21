@@ -48,6 +48,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { sileo } from "sileo";
+import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/environment/$id/queues/")({
   component: QueuesPage,
@@ -109,12 +110,12 @@ function QueuesPage() {
     if (paused) {
       unpauseMutation.mutate(queueName, {
         onSuccess: () => sileo.success({ title: `Queue "${queueName}" resumed` }),
-        onError: (err) => sileo.error({ title: `Failed to resume queue: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to resume queue: ${getErrorMessage(err)}` }),
       });
     } else {
       pauseMutation.mutate(queueName, {
         onSuccess: () => sileo.success({ title: `Queue "${queueName}" paused` }),
-        onError: (err) => sileo.error({ title: `Failed to pause queue: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to pause queue: ${getErrorMessage(err)}` }),
       });
     }
   };
@@ -129,7 +130,7 @@ function QueuesPage() {
           setDeleteTarget(null);
         },
         onError: (err) => {
-          sileo.error({ title: `Failed to delete queue: ${err.message}` });
+          sileo.error({ title: `Failed to delete queue: ${getErrorMessage(err)}` });
           setDeleteTarget(null);
         },
       }
