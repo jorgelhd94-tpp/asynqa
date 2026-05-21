@@ -9,11 +9,12 @@ import (
 )
 
 type EnvironmentService struct {
-	store *EnvironmentStore
+	store      *EnvironmentStore
+	inspectors *shared.InspectorManager
 }
 
-func NewEnvironmentService(store *EnvironmentStore) *EnvironmentService {
-	return &EnvironmentService{store: store}
+func NewEnvironmentService(store *EnvironmentStore, inspectors *shared.InspectorManager) *EnvironmentService {
+	return &EnvironmentService{store: store, inspectors: inspectors}
 }
 
 func (s *EnvironmentService) GetAll() ([]domain.Environment, error) {
@@ -31,11 +32,18 @@ func (s *EnvironmentService) Update(env domain.Environment) (domain.Environment,
 	if err := s.store.Update(&env); err != nil {
 		return domain.Environment{}, err
 	}
+	// Connection settings may have changed; drop the cached inspector so the
+	// next request reconnects with the new settings.
+	s.inspectors.Invalidate(env.ID)
 	return env, nil
 }
 
 func (s *EnvironmentService) Delete(id uint) error {
-	return s.store.Delete(id)
+	if err := s.store.Delete(id); err != nil {
+		return err
+	}
+	s.inspectors.Invalidate(id)
+	return nil
 }
 
 func (s *EnvironmentService) TestConnection(env domain.Environment) error {

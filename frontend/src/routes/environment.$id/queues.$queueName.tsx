@@ -6,18 +6,14 @@ import { StatCard } from "@/components/environment/stat-card";
 import { ErrorState } from "@/components/environment/error-state";
 import {
   TASK_STATES,
-  ROW_ACTIONS,
-  DATE_COLUMN_LABEL,
   TaskDetailContent,
-  SortableColumnHeader,
+  TaskTableSkeleton,
   formatBytes,
-  formatDate,
-  getDateFieldForState,
-  sortTasksByDate,
   getStateCount,
   type RowAction,
   type SortDirection,
 } from "@/components/environment/task-shared";
+import { TaskTable } from "@/components/environment/task-table";
 import {
   useQueueDetail,
   useTaskList,
@@ -29,27 +25,15 @@ import {
   useBulkDeleteTasks,
   useBulkArchiveTasks,
   type TaskState,
+  type BulkRunState,
+  type BulkArchiveState,
+  type BulkDeleteState,
 } from "@/hooks/use-queue-detail";
 import { usePauseQueue, useUnpauseQueue, useDeleteQueue } from "@/hooks/use-queues";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,14 +59,13 @@ import {
   ChevronRight,
   Clock,
   Layers,
-  MoreHorizontal,
   Pause,
   Play,
   Trash2,
-  XCircle,
   Zap,
 } from "lucide-react";
 import { sileo } from "sileo";
+import { getErrorMessage } from "@/lib/errors";
 import type { queue } from "../../../wailsjs/go/models";
 
 export const Route = createFileRoute("/environment/$id/queues/$queueName")({
@@ -112,7 +95,7 @@ function QueueDetailPage() {
   } | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  const taskList = useTaskList(environmentId, queueName, activeTab, page, PAGE_SIZE);
+  const taskList = useTaskList(environmentId, queueName, activeTab, page, PAGE_SIZE, sortDirection);
 
   const runTask = useRunTask(environmentId, queueName);
   const deleteTask = useDeleteTask(environmentId, queueName);
@@ -126,7 +109,17 @@ function QueueDetailPage() {
   const history = data?.history ?? [];
   const tasks = taskList.data?.tasks ?? [];
   const totalCount = taskList.data?.totalCount ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  // The backend globally sorts at most `sortLimit` tasks before paginating, so
+  // pagination is bounded to that window and we surface a notice when exceeded.
+  const sortLimit = taskList.data?.sortLimit ?? 0;
+  const sortableCount = sortLimit > 0 ? Math.min(totalCount, sortLimit) : totalCount;
+  const totalPages = Math.max(1, Math.ceil(sortableCount / PAGE_SIZE));
+  const sortCapped = sortLimit > 0 && totalCount > sortLimit;
+
+  const handleToggleSort = () => {
+    setSortDirection((d) => (d === "desc" ? "asc" : "desc"));
+    setPage(1);
+  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as TaskState);
@@ -139,12 +132,12 @@ function QueueDetailPage() {
     if (info.paused) {
       unpauseMutation.mutate(queueName, {
         onSuccess: () => sileo.success({ title: `Queue "${queueName}" resumed` }),
-        onError: (err) => sileo.error({ title: `Failed to resume: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to resume: ${getErrorMessage(err)}` }),
       });
     } else {
       pauseMutation.mutate(queueName, {
         onSuccess: () => sileo.success({ title: `Queue "${queueName}" paused` }),
-        onError: (err) => sileo.error({ title: `Failed to pause: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to pause: ${getErrorMessage(err)}` }),
       });
     }
   };
@@ -157,7 +150,7 @@ function QueueDetailPage() {
           sileo.success({ title: `Queue "${queueName}" deleted` });
           navigate({ to: "/environment/$id/queues", params: { id } });
         },
-        onError: (err) => sileo.error({ title: `Failed to delete: ${err.message}` }),
+        onError: (err) => sileo.error({ title: `Failed to delete: ${getErrorMessage(err)}` }),
         onSettled: () => setDeleteQueueOpen(false),
       }
     );
@@ -171,7 +164,7 @@ function QueueDetailPage() {
         sileo.success({ title: `Task ${labels[action]}` });
         setSelectedTask(null);
       },
-      onError: (err) => sileo.error({ title: `Failed: ${err.message}` }),
+      onError: (err) => sileo.error({ title: `Failed: ${getErrorMessage(err)}` }),
     });
   };
 
@@ -186,13 +179,25 @@ function QueueDetailPage() {
   const handleBulkAction = () => {
     if (!bulkAction) return;
     const { type, state } = bulkAction;
-    const mutationMap = { run: bulkRun, delete: bulkDelete, archive: bulkArchive };
-    mutationMap[type].mutate(state as any, {
-      onSuccess: (result: any) =>
-        sileo.success({ title: `${result.count} task(s) ${type === `run` ? `queued` : type + `d`}` }),
-      onError: (err: any) => sileo.error({ title: `Failed: ${err.message}` }),
+    const opts = {
+      onSuccess: (result: queue.BulkActionResult) =>
+        sileo.success({ title: `${result.count} task(s) ${type === "run" ? "queued" : type + "d"}` }),
+      onError: (err: unknown) => sileo.error({ title: `Failed: ${getErrorMessage(err)}` }),
       onSettled: () => setBulkAction(null),
-    });
+    };
+    // BULK_ACTIONS guarantees the state is valid for the chosen action; the
+    // casts narrow TaskState to each mutation's accepted subset.
+    switch (type) {
+      case "run":
+        bulkRun.mutate(state as BulkRunState, opts);
+        break;
+      case "archive":
+        bulkArchive.mutate(state as BulkArchiveState, opts);
+        break;
+      case "delete":
+        bulkDelete.mutate(state as BulkDeleteState, opts);
+        break;
+    }
   };
 
   if (isLoading) {
@@ -366,7 +371,9 @@ function QueueDetailPage() {
                 totalPages={totalPages}
                 isLoading={taskList.isLoading}
                 sortDirection={sortDirection}
-                onToggleSort={() => setSortDirection((d) => d === "desc" ? "asc" : "desc")}
+                sortCapped={activeTab === s.value && sortCapped}
+                sortLimit={sortLimit}
+                onToggleSort={handleToggleSort}
                 onPageChange={setPage}
                 onTaskAction={handleTaskAction}
                 onTaskSelect={setSelectedTask}
@@ -494,6 +501,8 @@ function TaskStateContent({
   totalPages,
   isLoading,
   sortDirection,
+  sortCapped,
+  sortLimit,
   onToggleSort,
   onPageChange,
   onTaskAction,
@@ -507,6 +516,8 @@ function TaskStateContent({
   totalPages: number;
   isLoading: boolean;
   sortDirection: SortDirection;
+  sortCapped: boolean;
+  sortLimit: number;
   onToggleSort: () => void;
   onPageChange: (p: number) => void;
   onTaskAction: (action: RowAction, taskID: string) => void;
@@ -514,7 +525,6 @@ function TaskStateContent({
   onBulkAction: (type: BulkActionType) => void;
 }) {
   const bulkActions = BULK_ACTIONS[state];
-  const rowActions = ROW_ACTIONS[state];
 
   return (
     <div>
@@ -543,11 +553,16 @@ function TaskStateContent({
         </div>
       )}
 
+      {/* Sort cap notice */}
+      {sortCapped && (
+        <div className="border-b border-(--color-divider) px-4 py-2 text-xs text-(--color-text-muted)">
+          {`Sorting the first ${sortLimit.toLocaleString()} of ${totalCount.toLocaleString()} tasks.`}
+        </div>
+      )}
+
       {/* Table */}
       {isLoading ? (
-        <div className="p-4">
-          <Skeleton className="h-48 rounded-lg" />
-        </div>
+        <TaskTableSkeleton state={state} />
       ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-1 py-16 text-sm text-(--color-text-secondary)">
           <p>{`No ${state} tasks`}</p>
@@ -557,115 +572,14 @@ function TaskStateContent({
         </div>
       ) : (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow className="border-(--color-divider) hover:bg-transparent">
-                <TableHead className="text-(--color-text-secondary)">ID</TableHead>
-                <TableHead className="text-(--color-text-secondary)">Type</TableHead>
-                <TableHead className="text-(--color-text-secondary)">Payload</TableHead>
-                {DATE_COLUMN_LABEL[state] && (
-                  <TableHead>
-                    <SortableColumnHeader
-                      label={DATE_COLUMN_LABEL[state]!}
-                      direction={sortDirection}
-                      onToggle={onToggleSort}
-                    />
-                  </TableHead>
-                )}
-                {state === "retry" && (
-                  <TableHead className="text-right text-(--color-text-secondary)">Retries</TableHead>
-                )}
-                {(state === "retry" || state === "archived") && (
-                  <TableHead className="text-(--color-text-secondary)">Last Error</TableHead>
-                )}
-                {state === "active" && (
-                  <TableHead className="text-center text-(--color-text-secondary)">Status</TableHead>
-                )}
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortTasksByDate(tasks, state, sortDirection).map((t) => (
-                <TableRow
-                  key={t.id}
-                  className="border-(--color-divider) hover:bg-(--color-row-hover) cursor-pointer transition-colors"
-                  onClick={() => onTaskSelect(t)}
-                >
-                  <TableCell className="font-mono text-xs text-(--color-text-secondary)">
-                    {t.id.slice(0, 8)}
-                  </TableCell>
-                  <TableCell className="font-medium text-(--color-text-primary)">
-                    {t.type}
-                  </TableCell>
-                  <TableCell className="max-w-48 truncate text-xs text-(--color-text-secondary)">
-                    {t.payload?.slice(0, 60)}
-                  </TableCell>
-                  {DATE_COLUMN_LABEL[state] && (
-                    <TableCell className="text-xs text-(--color-text-secondary)">
-                      {formatDate(getDateFieldForState(t, state))}
-                    </TableCell>
-                  )}
-                  {state === "retry" && (
-                    <TableCell className="text-right text-xs">
-                      <span className="text-(--color-warning)">
-                        {t.retried}/{t.maxRetry}
-                      </span>
-                    </TableCell>
-                  )}
-                  {(state === "retry" || state === "archived") && (
-                    <TableCell className="max-w-32 truncate text-xs text-(--color-error)">
-                      {t.lastErr}
-                    </TableCell>
-                  )}
-                  {state === "active" && (
-                    <TableCell className="text-center">
-                      {t.isOrphaned ? (
-                        <Badge variant="outline" className="border-(--color-error) text-(--color-error) text-xs">
-                          Orphaned
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="border-(--color-success) text-(--color-success) text-xs">
-                          Running
-                        </Badge>
-                      )}
-                    </TableCell>
-                  )}
-                  {state === "completed" && (
-                    <TableCell className="text-xs text-(--color-text-secondary)">
-                      {formatDate(t.completedAt)}
-                    </TableCell>
-                  )}
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    {rowActions.length > 0 && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon-xs" className="text-(--color-text-secondary) hover:text-(--color-text-primary)">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {rowActions.map((action, i) => (
-                            <div key={action}>
-                              {i > 0 && action === "delete" && <DropdownMenuSeparator />}
-                              <DropdownMenuItem
-                                variant={action === "delete" ? "destructive" : undefined}
-                                onClick={() => onTaskAction(action, t.id)}
-                              >
-                                {action === "run" && <><Play className="h-4 w-4" /> Run</>}
-                                {action === "archive" && <><Archive className="h-4 w-4" /> Archive</>}
-                                {action === "delete" && <><Trash2 className="h-4 w-4" /> Delete</>}
-                                {action === "cancel" && <><XCircle className="h-4 w-4" /> Cancel</>}
-                              </DropdownMenuItem>
-                            </div>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <TaskTable
+            state={state}
+            tasks={tasks}
+            sortDirection={sortDirection}
+            onToggleSort={onToggleSort}
+            onTaskSelect={onTaskSelect}
+            onTaskAction={onTaskAction}
+          />
 
           {/* Pagination */}
           {totalPages > 1 && (

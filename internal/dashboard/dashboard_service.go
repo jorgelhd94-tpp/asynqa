@@ -2,19 +2,20 @@ package dashboard
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
-	"github.com/hibiken/asynq"
 	env "github.com/jorgelhd94/asynqa/internal/environment"
 	"github.com/jorgelhd94/asynqa/internal/shared"
 )
 
 type DashboardService struct {
 	environmentStore *env.EnvironmentStore
+	inspectors       *shared.InspectorManager
 }
 
-func NewDashboardService(environmentStore *env.EnvironmentStore) *DashboardService {
-	return &DashboardService{environmentStore: environmentStore}
+func NewDashboardService(environmentStore *env.EnvironmentStore, inspectors *shared.InspectorManager) *DashboardService {
+	return &DashboardService{environmentStore: environmentStore, inspectors: inspectors}
 }
 
 func (s *DashboardService) GetDashboard(environmentID uint) (DashboardData, error) {
@@ -23,8 +24,7 @@ func (s *DashboardService) GetDashboard(environmentID uint) (DashboardData, erro
 		return DashboardData{}, fmt.Errorf("environment not found: %w", err)
 	}
 
-	inspector := asynq.NewInspector(shared.NewRedisOpts(env))
-	defer inspector.Close()
+	inspector := s.inspectors.Get(env)
 
 	queueNames, err := inspector.Queues()
 	if err != nil {
@@ -36,6 +36,7 @@ func (s *DashboardService) GetDashboard(environmentID uint) (DashboardData, erro
 	for _, name := range queueNames {
 		info, err := inspector.GetQueueInfo(name)
 		if err != nil {
+			slog.Warn("dashboard: skipping queue, failed to get info", "queue", name, "error", err)
 			continue
 		}
 
@@ -67,8 +68,9 @@ func (s *DashboardService) GetDashboard(environmentID uint) (DashboardData, erro
 	if len(queueNames) > 0 {
 		historyMap := make(map[string]DailyStats)
 		for _, name := range queueNames {
-			history, err := inspector.History(name, 14)
+			history, err := inspector.History(name, shared.HistoryDays)
 			if err != nil {
+				slog.Warn("dashboard: skipping history, failed to load", "queue", name, "error", err)
 				continue
 			}
 			for _, h := range history {

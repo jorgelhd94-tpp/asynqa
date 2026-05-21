@@ -236,6 +236,7 @@ export namespace queue {
 	    totalCount: number;
 	    page: number;
 	    pageSize: number;
+	    sortLimit: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PaginatedTaskList(source);
@@ -247,6 +248,7 @@ export namespace queue {
 	        this.totalCount = source["totalCount"];
 	        this.page = source["page"];
 	        this.pageSize = source["pageSize"];
+	        this.sortLimit = source["sortLimit"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -722,7 +724,6 @@ export namespace updater {
 	    latestVersion: string;
 	    releaseNotes: string;
 	    url: string;
-	    manualOnly: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateInfo(source);
@@ -735,27 +736,6 @@ export namespace updater {
 	        this.latestVersion = source["latestVersion"];
 	        this.releaseNotes = source["releaseNotes"];
 	        this.url = source["url"];
-	        this.manualOnly = source["manualOnly"];
-	    }
-	}
-	export class UpdateResult {
-	    success: boolean;
-	    version: string;
-	    message: string;
-	    url?: string;
-	    manualOnly?: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new UpdateResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.success = source["success"];
-	        this.version = source["version"];
-	        this.message = source["message"];
-	        this.url = source["url"];
-	        this.manualOnly = source["manualOnly"];
 	    }
 	}
 

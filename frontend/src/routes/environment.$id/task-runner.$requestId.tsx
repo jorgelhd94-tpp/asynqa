@@ -61,6 +61,7 @@ function SavedRequestPage() {
   return (
     <TaskRunnerForm
       environmentId={environmentId}
+      requestId={numericRequestId}
       initialValues={initialValues}
       onSave={handleSave}
       isSaving={updateMutation.isPending}

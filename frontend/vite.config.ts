@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
@@ -17,5 +17,8 @@ export default defineConfig({
     alias: {
       "@": "/src",
     },
+  },
+  test: {
+    environment: "node",
   },
 });

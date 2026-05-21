@@ -19,7 +19,7 @@ export function useQueueDetail(environmentId: number, queueName: string) {
 
 const taskListFns: Record<
   TaskState,
-  (envId: number, queue: string, page: number, size: number) => Promise<any>
+  (envId: number, queue: string, page: number, size: number, sortDir: string) => Promise<any>
 > = {
   pending: QueueService.ListPendingTasks,
   active: QueueService.ListActiveTasks,
@@ -34,11 +34,12 @@ export function useTaskList(
   queueName: string,
   state: TaskState,
   page: number,
-  pageSize: number
+  pageSize: number,
+  sortDir: string
 ) {
   return useQuery({
-    queryKey: ["queue-tasks", environmentId, queueName, state, page, pageSize],
-    queryFn: () => taskListFns[state](environmentId, queueName, page, pageSize),
+    queryKey: ["queue-tasks", environmentId, queueName, state, page, pageSize, sortDir],
+    queryFn: () => taskListFns[state](environmentId, queueName, page, pageSize, sortDir),
     refetchInterval: 5000,
   });
 }
@@ -94,13 +95,13 @@ export function useCancelTask(environmentId: number) {
     mutationFn: (taskID: string) =>
       QueueService.CancelActiveTask(environmentId, taskID),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["queue-tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["queue-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-tasks", environmentId] });
+      queryClient.invalidateQueries({ queryKey: ["queue-detail", environmentId] });
     },
   });
 }
 
-type BulkRunState = "scheduled" | "retry" | "archived";
+export type BulkRunState = "scheduled" | "retry" | "archived";
 const bulkRunFns: Record<
   BulkRunState,
   (envId: number, queue: string) => Promise<any>
@@ -119,7 +120,7 @@ export function useBulkRunTasks(environmentId: number, queueName: string) {
   });
 }
 
-type BulkArchiveState = "pending" | "scheduled" | "retry";
+export type BulkArchiveState = "pending" | "scheduled" | "retry";
 const bulkArchiveFns: Record<
   BulkArchiveState,
   (envId: number, queue: string) => Promise<any>
@@ -138,7 +139,7 @@ export function useBulkArchiveTasks(environmentId: number, queueName: string) {
   });
 }
 
-type BulkDeleteState =
+export type BulkDeleteState =
   | "pending"
   | "scheduled"
   | "retry"

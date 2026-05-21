@@ -62,6 +62,10 @@ type PaginatedTaskList struct {
 	TotalCount int        `json:"totalCount"`
 	Page       int        `json:"page"`
 	PageSize   int        `json:"pageSize"`
+	// SortLimit is the max number of tasks that get globally sorted before
+	// pagination. When TotalCount exceeds it, sorting only covers the first
+	// SortLimit tasks (the UI surfaces this).
+	SortLimit int `json:"sortLimit"`
 }
 
 type BulkActionResult struct {

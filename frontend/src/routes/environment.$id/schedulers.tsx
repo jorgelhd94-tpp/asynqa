@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { CodeBlock } from "@/components/environment/code-block";
 import { sileo } from "sileo";
+import { getErrorMessage } from "@/lib/errors";
 import type { scheduler } from "../../../wailsjs/go/models";
 
 export const Route = createFileRoute("/environment/$id/schedulers")({
@@ -77,7 +78,7 @@ function SchedulersPage() {
         });
       },
       onError: (err) => {
-        sileo.error({ title: `Failed to enqueue: ${err.message}` });
+        sileo.error({ title: `Failed to enqueue: ${getErrorMessage(err)}` });
       },
     });
   };

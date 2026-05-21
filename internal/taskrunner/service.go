@@ -2,6 +2,7 @@ package taskrunner
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hibiken/asynq"
@@ -23,6 +24,10 @@ func NewTaskRunnerService(environmentStore *env.EnvironmentStore, requestStore *
 }
 
 func (s *TaskRunnerService) EnqueueTask(environmentID uint, request EnqueueRequest) (EnqueueResult, error) {
+	if strings.TrimSpace(request.TaskType) == "" {
+		return EnqueueResult{}, fmt.Errorf("task type is required")
+	}
+
 	env, err := s.environmentStore.FindByID(environmentID)
 	if err != nil {
 		return EnqueueResult{}, fmt.Errorf("environment not found: %w", err)

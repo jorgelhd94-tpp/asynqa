@@ -7,7 +7,16 @@ import "./index.css";
 
 import { routeTree } from './routeTree.gen'
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // This is a local desktop tool polling Redis; surface failures fast
+      // instead of retrying 3x with backoff, and keep cache a bit longer.
+      retry: 1,
+      gcTime: 10 * 60 * 1000,
+    },
+  },
+});
 const router = createRouter({ routeTree })
 
 declare module '@tanstack/react-router' {

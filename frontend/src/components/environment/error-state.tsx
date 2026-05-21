@@ -1,25 +1,16 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/errors";
 
 type ErrorStateProps = {
   title: string;
-  error?: Error | null;
+  error?: unknown;
   onRetry?: () => void;
   isRetrying?: boolean;
 };
 
-function parseErrorMessage(error: Error): string {
-  try {
-    const parsed = JSON.parse(error.message);
-    if (parsed && typeof parsed.message === "string") return parsed.message;
-  } catch {
-    // not JSON, fall through to raw message
-  }
-  return error.message;
-}
-
 export function ErrorState({ title, error, onRetry, isRetrying }: ErrorStateProps) {
-  const message = error ? parseErrorMessage(error) : undefined;
+  const message = error != null ? getErrorMessage(error) : undefined;
 
   return (
     <div className="flex items-center justify-center py-10">

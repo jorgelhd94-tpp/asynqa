@@ -19,6 +19,7 @@ import {
 import type { Environment, EnvironmentFormData } from "./types";
 import React, { useEffect, useState } from "react";
 import { sileo } from "sileo";
+import { getErrorMessage } from "@/lib/errors";
 
 type EnvironmentDialogProps = {
   trigger: React.ReactNode;
@@ -191,16 +192,9 @@ export function EnvironmentDialog({
                   sileo.success({ title: "Connection successful" });
                 },
                 onError: (error) => {
-                  let description = error.message;
-                  try {
-                    const parsed = JSON.parse(description);
-                    description = parsed.message ?? description;
-                  } catch {
-                    // use raw message
-                  }
                   sileo.error({
                     title: "Connection failed",
-                    description,
+                    description: getErrorMessage(error),
                   });
                 },
               })

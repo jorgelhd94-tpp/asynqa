@@ -1,6 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { CodeBlock } from "@/components/environment/code-block";
 import type { TaskState } from "@/hooks/use-queue-detail";
 import {
@@ -46,20 +55,6 @@ export function getDateFieldForState(task: { lastFailedAt: string; nextProcessAt
 }
 
 export type SortDirection = "asc" | "desc";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function sortTasksByDate(tasks: any[], state: TaskState, direction: SortDirection = "desc"): any[] {
-  return [...tasks].sort((a, b) => {
-    const dateA = getDateFieldForState(a, state);
-    const dateB = getDateFieldForState(b, state);
-    if (!dateA && !dateB) return 0;
-    if (!dateA) return 1;
-    if (!dateB) return -1;
-    return direction === "desc"
-      ? dateB.localeCompare(dateA)
-      : dateA.localeCompare(dateB);
-  });
-}
 
 export const DATE_COLUMN_LABEL: Partial<Record<TaskState, string>> = {
   scheduled: "Next Run",
@@ -156,6 +151,71 @@ export function SortableColumnHeader({
         <ArrowUp className="h-3 w-3" />
       )}
     </button>
+  );
+}
+
+// Renders the real task table chrome (same headers/borders/spacing) with
+// skeleton cells in the body, so a loading tab reads as "this table is
+// populating" instead of looking like the data was wiped.
+export function TaskTableSkeleton({
+  state = "pending",
+  rows = 6,
+}: {
+  state?: TaskState;
+  rows?: number;
+}) {
+  const showDate = !!DATE_COLUMN_LABEL[state];
+  const showRetries = state === "retry";
+  const showLastError = state === "retry" || state === "archived";
+  const showStatus = state === "active";
+
+  return (
+    <Table aria-busy="true">
+      <TableHeader>
+        <TableRow className="border-(--color-divider) hover:bg-transparent">
+          <TableHead className="text-(--color-text-secondary)">ID</TableHead>
+          <TableHead className="text-(--color-text-secondary)">Type</TableHead>
+          <TableHead className="text-(--color-text-secondary)">Payload</TableHead>
+          {showDate && (
+            <TableHead className="text-(--color-text-secondary)">
+              {DATE_COLUMN_LABEL[state]}
+            </TableHead>
+          )}
+          {showRetries && (
+            <TableHead className="text-right text-(--color-text-secondary)">Retries</TableHead>
+          )}
+          {showLastError && (
+            <TableHead className="text-(--color-text-secondary)">Last Error</TableHead>
+          )}
+          {showStatus && (
+            <TableHead className="text-center text-(--color-text-secondary)">Status</TableHead>
+          )}
+          <TableHead className="w-10" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {Array.from({ length: rows }).map((_, i) => (
+          <TableRow key={i} className="border-(--color-divider) hover:bg-transparent">
+            <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-full max-w-48" /></TableCell>
+            {showDate && (
+              <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+            )}
+            {showRetries && (
+              <TableCell className="text-right"><Skeleton className="ml-auto h-4 w-10" /></TableCell>
+            )}
+            {showLastError && (
+              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+            )}
+            {showStatus && (
+              <TableCell><Skeleton className="mx-auto h-5 w-16 rounded-full" /></TableCell>
+            )}
+            <TableCell><Skeleton className="h-4 w-6" /></TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

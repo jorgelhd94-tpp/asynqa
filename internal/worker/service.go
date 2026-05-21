@@ -2,7 +2,6 @@ package worker
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/hibiken/asynq"
 	env "github.com/jorgelhd94/asynqa/internal/environment"
@@ -11,33 +10,27 @@ import (
 
 type WorkerService struct {
 	environmentStore *env.EnvironmentStore
+	inspectors       *shared.InspectorManager
 }
 
-func NewWorkerService(environmentStore *env.EnvironmentStore) *WorkerService {
-	return &WorkerService{environmentStore: environmentStore}
+func NewWorkerService(environmentStore *env.EnvironmentStore, inspectors *shared.InspectorManager) *WorkerService {
+	return &WorkerService{environmentStore: environmentStore, inspectors: inspectors}
 }
 
+// newInspector returns a pooled inspector owned by the manager — do not Close it.
 func (s *WorkerService) newInspector(environmentID uint) (*asynq.Inspector, error) {
 	env, err := s.environmentStore.FindByID(environmentID)
 	if err != nil {
 		return nil, fmt.Errorf("environment not found: %w", err)
 	}
-	return asynq.NewInspector(shared.NewRedisOpts(env)), nil
-}
-
-func formatTime(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return t.Format(time.RFC3339)
+	return s.inspectors.Get(env), nil
 }
 
 func (s *WorkerService) GetWorkers(environmentID uint) (WorkersData, error) {
 	inspector, err := s.newInspector(environmentID)
 	if err != nil {
 		return WorkersData{}, err
-	}
-	defer inspector.Close()
+	}
 
 	servers, err := inspector.Servers()
 	if err != nil {
@@ -54,7 +47,7 @@ func (s *WorkerService) GetWorkers(environmentID uint) (WorkersData, error) {
 				Queue:   w.Queue,
 				Type:    w.TaskType,
 				Payload: string(w.TaskPayload),
-				Started: formatTime(w.Started),
+				Started: shared.FormatTime(w.Started),
 			})
 		}
 
@@ -69,7 +62,7 @@ func (s *WorkerService) GetWorkers(environmentID uint) (WorkersData, error) {
 			PID:            srv.PID,
 			Queues:         queues,
 			StrictPriority: srv.StrictPriority,
-			Started:        formatTime(srv.Started),
+			Started:        shared.FormatTime(srv.Started),
 			Status:         srv.Status,
 			Concurrency:    srv.Concurrency,
 			ActiveWorkers:  workers,
