@@ -69,3 +69,8 @@ Write tests for logic that can break in non-obvious ways — pure functions (sor
 - Frontend assets are embedded into the Go binary via `go:embed all:frontend/dist`
 - Structured logging uses Go's `slog` package with a custom GORM adapter
 - Wails v2 configuration lives in `wails.json` at the project root
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->

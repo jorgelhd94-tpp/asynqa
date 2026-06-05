@@ -35,7 +35,6 @@ build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 *.dylib
 
 .agents
-.claude
 .windsurf
 .windsurf/*
 
