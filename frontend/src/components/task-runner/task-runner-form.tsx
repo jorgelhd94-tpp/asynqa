@@ -313,7 +313,7 @@ export function TaskRunnerForm({
                     </Button>
                   </div>
                 </div>
-                <JsonEditor value={payload} onChange={setPayload} />
+                <JsonEditor key={requestId} value={payload} onChange={setPayload} />
               </div>
             </TabsContent>
 

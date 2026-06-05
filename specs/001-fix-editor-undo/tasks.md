@@ -33,7 +33,7 @@ Frontend-only change. Paths are relative to the repository root; the editor live
 
 **Purpose**: Confirm prerequisites; no dependency changes are required.
 
-- [ ] T001 Verify `@codemirror/commands` (^6.10.3, already in `frontend/package.json`)
+- [X] T001 Verify `@codemirror/commands` (^6.10.3, already in `frontend/package.json`)
   exposes `history`, `historyKeymap`, `undo`, `redo`, `undoDepth`, and `redoDepth`, and
   that `cd frontend && npm run test` runs the Vitest suite. No npm install needed.
 
@@ -44,7 +44,7 @@ Frontend-only change. Paths are relative to the repository root; the editor live
 **Purpose**: Make the editor configuration testable so the fix can be verified without a
 real DOM. **⚠️ Blocks all user stories.**
 
-- [ ] T002 Refactor `frontend/src/components/task-runner/json-editor.tsx`: extract the
+- [X] T002 Refactor `frontend/src/components/task-runner/json-editor.tsx`: extract the
   `extensions: [ … ]` array from the editor-creation `useEffect` into a pure, exported
   factory `createJsonEditorExtensions()` and have `EditorState.create({ extensions: … })`
   consume it. No behavior change in this task (history not added yet).
@@ -62,14 +62,14 @@ undo reverts it; manually, type→undo ~20× in the editor with zero dead presse
 
 ### Tests for User Story 1 ⚠️ (write first, must FAIL before T004)
 
-- [ ] T003 [P] [US1] Add `frontend/src/components/task-runner/json-editor.test.ts`:
+- [X] T003 [P] [US1] Add `frontend/src/components/task-runner/json-editor.test.ts`:
   create an `EditorState` from `createJsonEditorExtensions()`, apply an insert transaction,
   assert `undoDepth(state) > 0`, and assert that applying `undo` returns the document to its
   original text. This test FAILS on the current extension set (no history).
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] In `createJsonEditorExtensions()` (`frontend/src/components/task-runner/json-editor.tsx`)
+- [X] T004 [US1] In `createJsonEditorExtensions()` (`frontend/src/components/task-runner/json-editor.tsx`)
   add `history()` to the extensions and include `historyKeymap` in the keymap as
   `keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap])`, importing `history` and
   `historyKeymap` from `@codemirror/commands`. This makes T003 pass (GREEN).
@@ -87,7 +87,7 @@ document returns through each prior state to the start; one extra undo is a no-o
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T005 [P] [US2] Extend `frontend/src/components/task-runner/json-editor.test.ts`
+- [X] T005 [P] [US2] Extend `frontend/src/components/task-runner/json-editor.test.ts`
   with a multi-step case: apply two separate change transactions, assert two `undo` calls
   walk back to the original document in reverse order, and that a further `undo` with an
   empty stack is a no-op (FR-003, FR-008). Behavior is delivered by T004; this test locks it.
@@ -105,7 +105,7 @@ confirm redo no longer reapplies anything.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T006 [P] [US3] Extend `frontend/src/components/task-runner/json-editor.test.ts`
+- [X] T006 [P] [US3] Extend `frontend/src/components/task-runner/json-editor.test.ts`
   with a redo case: after an `undo`, assert `redo` reapplies the change (via document text
   and `redoDepth`), and that making a new change discards the redo branch (FR-004).
   Behavior is delivered by T004; this test locks it.
@@ -118,12 +118,12 @@ confirm redo no longer reapplies anything.
 
 **Purpose**: Scope history per request and validate the whole feature end-to-end.
 
-- [ ] T007 [P] Scope undo history per loaded request: in
+- [X] T007 [P] Scope undo history per loaded request: in
   `frontend/src/components/task-runner/task-runner-form.tsx`, render the editor as
   `<JsonEditor key={requestId} value={payload} onChange={setPayload} />` so loading a
   different saved request remounts the editor with a fresh undo session (FR-007). Confirm
   Prettify and Reset do not change `requestId`, so they remain one undo step (FR-006).
-- [ ] T008 Run `cd frontend && npm run test` (all green) and `npm run build` to confirm no
+- [X] T008 Run `cd frontend && npm run test` (all green) and `npm run build` to confirm no
   type or build regressions.
 - [ ] T009 Manual validation per `specs/001-fix-editor-undo/quickstart.md` under
   `wails dev` — all 7 steps: single-undo reliability (×20), multi-step undo, redo,
